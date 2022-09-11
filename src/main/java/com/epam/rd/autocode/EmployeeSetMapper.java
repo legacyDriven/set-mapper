@@ -10,13 +10,16 @@ import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class EmployeeSetMapper<T> implements SetMapper<T> {
     @Override
     public T mapSet(ResultSet resultSet) {
-        Set<EmployeeDAO> toMap = new HashSet<>();
+      //  Map<Position, EmployeeDAO> toMap = new HashMap<>();
+        //Set<EmployeeDAO> other = new HashSet<>();
         Set<Employee> result = new HashSet<>();
         try {
             while (resultSet.next()) {
@@ -28,8 +31,10 @@ public class EmployeeSetMapper<T> implements SetMapper<T> {
                 BigDecimal salary = new BigDecimal(resultSet.getString(8));
                 salary = salary.setScale(5, RoundingMode.HALF_UP);
                 Integer managerId = resultSet.getInt(9);
-                toMap.add(new EmployeeDAO(id, fullName, position, hired, salary, managerId));
-                result = mapHierarchy(toMap);
+          //      EmployeeDAO current = new EmployeeDAO(id, fullName, position, hired, salary, managerId));
+            //    toMap.put(current.position, current);
+              //  other.add(current);
+                // result = mapHierarchy(toMap);
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -38,39 +43,6 @@ public class EmployeeSetMapper<T> implements SetMapper<T> {
         return (T) result;
     }
 
-    private Set<Employee> mapHierarchy(Set<EmployeeDAO> toMap) {
-        Set<Employee> result = new HashSet<>();
-        for(EmployeeDAO e:toMap){
-            result.add(mapEmployee(e,toMap));
-        }
-        return result;
-    }
-
-    private Employee mapEmployee(EmployeeDAO worker, Set<EmployeeDAO> toMap) {
-        return new Employee(worker.id, worker.fullName,findManager(worker.managerId, toMap), )
-    }
-
-    private Employee findManager(Integer managerId, Set<EmployeeDAO> toMap){
-
-    }
-
-    private class EmployeeDAO {
-        private final BigInteger id;
-        private final FullName fullName;
-        private final Position position;
-        private final LocalDate hired;
-        private final BigDecimal salary;
-        private Integer managerId;
-
-        public EmployeeDAO(BigInteger id, FullName fullName, Position position, LocalDate hired, BigDecimal salary, Integer managerId) {
-            this.id = id;
-            this.fullName = fullName;
-            this.position = position;
-            this.hired = hired;
-            this.salary = salary;
-            this.managerId = managerId;
-        }
-    }
 }
 /*
 
