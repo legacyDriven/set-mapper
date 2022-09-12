@@ -16,12 +16,12 @@ import java.util.stream.Collectors;
 public class NestedSetMapper<T> implements SetMapper<T>{
     @Override
     public T mapSet(ResultSet resultSet) {
-      Set<Employee> result = new HashSet<>();
-//      Map<Position, EmployeeDAO> toProcess = new TreeMap<>();
-        Set<EmployeeDAO> toMap = new HashSet<>();
+      Set<Employee> result;
+        Set<EmployeeDTO> toMap = new HashSet<>();
         try {
             while (resultSet.next()) {
                 BigInteger id = BigInteger.valueOf(resultSet.getInt(1));
+                System.out.println(id);
                 FullName fullName =
                         new FullName(resultSet.getString(2), resultSet.getString(3), resultSet.getString(4));
                 Position position = Position.valueOf(resultSet.getString(5));
@@ -29,39 +29,73 @@ public class NestedSetMapper<T> implements SetMapper<T>{
                 BigDecimal salary = new BigDecimal(resultSet.getString(8));
                 salary = salary.setScale(5, RoundingMode.HALF_UP);
                 BigInteger managerId = BigInteger.valueOf(resultSet.getInt(9));
-                toMap.add(new EmployeeDAO(id, fullName, position, hired, salary, managerId));
+                System.out.println(managerId);
+                toMap.add(new EmployeeDTO(id, fullName, position, hired, salary, managerId));
             }
         } catch (SQLException e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
+        System.out.println(toMap);
         result = hierarchyMapper(toMap);
         return (T) result;
     }
 
-    Set<Employee> hierarchyMapper(Set<EmployeeDAO> entries){
+    Set<Employee> hierarchyMapper(Set<EmployeeDTO> entries){
         Set<Employee> result = new HashSet<>();
-        EmployeeDAO head = entries.stream().filter(e->e.managerId==null).findFirst().get();
-        Employee currentManager = new Employee(head.id, head.fullName, head.position, head.hired, head.salary, null);
-        entries.remove(head); result.add(currentManager);
-
-
+        List<EmployeeDTO> toMap = new ArrayList<>(entries);
+        EmployeeDTO president = entries.stream().filter(n->n.managerId==null).findFirst().orElseThrow();
+        Employee head = mapDtoToEmployee(president, null);
+        result.add(head);
+        toMap.remove(president);
+        result.addAll(mapToDirectSuperiors(result, toMap));
         return result;
     }
 
-    private static Set<Employee> mapDirectSubordinates(Set<EmployeeDAO> entries, Employee manager){
+    private Collection<? extends Employee> mapToDirectSuperiors(Set<Employee> result, List<EmployeeDTO> toMap) {
+        while(!toMap.isEmpty()){
+            for(int i = 0; i<toMap.size(); i++){
+                if(i==toMap.size()-1) i=0;
+                if(result.contains(findEmpById(result, toMap.get(i).managerId))){
+                    result.add(mapDtoToEmployee(toMap.get(i), findEmpById(result, toMap.get(i).id)));
+                    toMap.remove(i);
+                }
+            }
+        }
+        return result;
+    }
+
+    Employee findEmpById(Set<Employee> managers, BigInteger id){
+        return managers.stream().filter(n->n.getId().equals(id)).findFirst().orElseThrow();
+    }
+
+    private Employee mapDtoToEmployee(EmployeeDTO dto, Employee manager){
+        return new Employee(dto.id, dto.fullName, dto.position, dto.hired, dto.salary, manager);
+    }
+
+//    Set<Employee> hierarchyMapper(Set<EmployeeDTO> entries){
+//        Set<Employee> result = new HashSet<>();
+//        EmployeeDTO head = entries.stream().filter(e->e.managerId==null).findFirst().orElseThrow();
+//        Employee currentManager = new Employee(head.id, head.fullName, head.position, head.hired, head.salary, null);
+//        entries.remove(head); result.add(currentManager);
+//        mapDirectSubordinates(entries, currentManager);
+//
+//        return result;
+//    }
+
+    private static Set<Employee> mapDirectSubordinates(Set<EmployeeDTO> entries, Employee manager){
         Set<Employee> result = new HashSet<>();
-        List<EmployeeDAO> subordinates = entries.stream()
+        List<EmployeeDTO> subordinates = entries.stream()
                 .filter(n-> n.managerId.equals(manager.getId()))
                 .collect(Collectors.toList());
-        for (EmployeeDAO e : entries){
+        for (EmployeeDTO e : entries){
             result.add(new Employee(e.id, e.fullName, e.position, e.hired, e.salary, manager));
         }
         return result;
     }
 
 
-    private static class EmployeeDAO {
+    private static class EmployeeDTO {
         private final BigInteger id;
         private final FullName fullName;
         private final Position position;
@@ -69,7 +103,7 @@ public class NestedSetMapper<T> implements SetMapper<T>{
         private final BigDecimal salary;
         private final BigInteger managerId;
 
-        public EmployeeDAO(BigInteger id, FullName fullName, Position position, LocalDate hired, BigDecimal salary, BigInteger managerId) {
+        public EmployeeDTO(BigInteger id, FullName fullName, Position position, LocalDate hired, BigDecimal salary, BigInteger managerId) {
             this.id = id;
             this.fullName = fullName;
             this.position = position;
@@ -94,8 +128,10 @@ public class NestedSetMapper<T> implements SetMapper<T>{
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            EmployeeDAO that = (EmployeeDAO) o;
-            return Objects.equals(id, that.id) && Objects.equals(fullName, that.fullName) && position == that.position && Objects.equals(hired, that.hired) && Objects.equals(salary, that.salary) && Objects.equals(managerId, that.managerId);
+            EmployeeDTO that = (EmployeeDTO) o;
+            return Objects.equals(id, that.id) && Objects.equals(fullName, that.fullName)
+                    && position == that.position && Objects.equals(hired, that.hired) && Objects.equals(salary, that.salary)
+                    && Objects.equals(managerId, that.managerId);
         }
 
         @Override
